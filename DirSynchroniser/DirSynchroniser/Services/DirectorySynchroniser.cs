@@ -1,4 +1,5 @@
 ﻿using NLog;
+using System.Security.Cryptography;
 
 namespace DirSynchroniser.Services
 {
@@ -57,16 +58,15 @@ namespace DirSynchroniser.Services
                     bool needsCopy = true;
                     if (targetRelativePaths.Contains(relativePath))
                     {
-                        
+
                         var sourceInfo = new FileInfo(sourceFile);
                         var targetInfo = new FileInfo(existingTargetFile);
 
                         if (sourceInfo.Length == targetInfo.Length)
                         {
-                            using var sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-                            using var targetStream = new FileStream(existingTargetFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-                            needsCopy = !IsStreamOneEqualTwo(sourceStream, targetStream);
+                            string sourceChecksum = ComputeFileChecksum(sourceFile);
+                            string targetChecksum = ComputeFileChecksum(existingTargetFile);
+                            needsCopy = !string.Equals(sourceChecksum, targetChecksum, StringComparison.OrdinalIgnoreCase);
                         }
                     }
 
@@ -123,27 +123,12 @@ namespace DirSynchroniser.Services
 
         }
 
-        private static bool IsStreamOneEqualTwo(Stream stream1, Stream stream2)
+        private static string ComputeFileChecksum(string filePath)
         {
-            if (stream1.Length != stream2.Length)
-                return false;
-
-            const int BYTES_TO_READ = sizeof(Int64);
-            byte[] oneChunk = new byte[BYTES_TO_READ];
-            byte[] twoChunk = new byte[BYTES_TO_READ];
-            int requiredIterations = (int)Math.Ceiling((double)stream1.Length / BYTES_TO_READ);
-
-            for (int i = 0; i < requiredIterations; i++)
-            {
-                stream1.Read(oneChunk, 0, BYTES_TO_READ);
-                stream2.Read(twoChunk, 0, BYTES_TO_READ);
-
-                if (BitConverter.ToInt64(oneChunk, 0) != BitConverter.ToInt64(twoChunk, 0))
-                    return false;
-            }
-
-
-            return true;
+            using var sha256 = SHA256.Create();
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var hash = sha256.ComputeHash(stream);
+            return BitConverter.ToString(hash);
         }
     }
 }

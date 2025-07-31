@@ -39,6 +39,8 @@ namespace DirSynchroniser
                 logger.Info("Starting directory synchronisation from {0} to {1} every {2} seconds.", sourcePath, targetPath, intervalSeconds);
                 var synchroniser = new DirectorySynchroniser(sourcePath, targetPath, logger);
                 synchroniser.Synchronise();
+
+                // TBD run synchronisation periodically
             }
             catch (Exception mainException)
             {
