@@ -1,9 +1,4 @@
 ﻿using NLog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DirSynchroniser.Services
 {
@@ -35,16 +30,19 @@ namespace DirSynchroniser.Services
                     if (!Directory.Exists(targetDir))
                     {
                         Directory.CreateDirectory(targetDir);
-                        this.logger.Info($"created directory: {relativePath}");
+                        this.logger.Info($"created directory: {targetDir}");
                     }
                 }
                 catch (IOException ex)
                 {
-                    this.logger.Warn($"couldn't create directory: {relativePath}. Error: {ex.Message}");
+                    this.logger.Warn($"couldn't create directory: {targetDir}. Error: {ex.Message}");
                 }
             }
 
             var sourceFiles = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories);
+            var sourceRelativePaths = sourceFiles
+                .Select(file => Path.GetRelativePath(sourcePath, file))
+                .ToArray();
             var targetFiles = Directory.GetFiles(targetPath, "*", SearchOption.AllDirectories);
             var targetRelativePaths = targetFiles
                 .Select(file => Path.GetRelativePath(targetPath, file))
@@ -77,16 +75,51 @@ namespace DirSynchroniser.Services
                         using var sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read, FileShare.Read);
                         using var targetStream = new FileStream(existingTargetFile, FileMode.Create, FileAccess.Write, FileShare.None);
                         sourceStream.CopyTo(targetStream);
-                        this.logger.Info($"updated: {relativePath}");
+                        this.logger.Info($"copied or updated: {existingTargetFile}");
                     }
                 }
                 catch (IOException ex)
                 {
-                    this.logger.Warn($"couldn't update: {relativePath}. Error: {ex.Message}");
+                    this.logger.Warn($"couldn't update: {existingTargetFile}. Error: {ex.Message}");
                 }
             }
 
-            // TBD remove redundant
+            foreach (var targetFile in targetRelativePaths)
+            {
+                if (!sourceRelativePaths.Contains(targetFile))
+                {
+                    var existingTargetFile = Path.Combine(targetPath, targetFile);
+                    try
+                    {
+                        File.Delete(existingTargetFile);
+                        this.logger.Info($"removed redundant: {existingTargetFile}");
+                    }
+                    catch (IOException ex)
+                    {
+                        this.logger.Warn($"could not remove: {existingTargetFile} Error: {ex.Message}");
+                    }
+                }
+            }
+
+            var targetDirs = Directory.GetDirectories(targetPath, "*", SearchOption.AllDirectories);
+            foreach (var targetDir in targetDirs.OrderByDescending(d => d.Length))
+            {
+                var relativePath = Path.GetRelativePath(targetPath, targetDir);
+                var sourceDir = Path.Combine(sourcePath, relativePath);
+
+                try
+                {
+                    if (!Directory.Exists(sourceDir))
+                    {
+                        Directory.Delete(targetDir, true);
+                        this.logger.Info($"removed redundant directory: {targetDir}");
+                    }
+                }
+                catch (IOException ex)
+                {
+                    this.logger.Warn($"could not remove directory: {targetDir}. Error: {ex.Message}");
+                }
+            }
 
         }
 
