@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DirSynchroniser": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\sync\\source D:\\sync\\target 10 D:\\sync\\logs"
+    }
+  }
+}
