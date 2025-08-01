@@ -18,7 +18,7 @@ namespace DirSynchroniser.Services
 
         public void Synchronise()
         {
-            this.logger.Info("sync is starting");
+            this.logger.Debug("sync is starting");
 
             var sourceDirs = Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories);
             foreach (var sourceDir in sourceDirs)

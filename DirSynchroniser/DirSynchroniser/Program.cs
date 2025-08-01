@@ -1,8 +1,7 @@
 ﻿using DirSynchroniser.Models;
 using DirSynchroniser.Services;
 using NLog;
-using System;
-using System.Threading;
+using System.Runtime.ExceptionServices;
 
 namespace DirSynchroniser
 {
@@ -20,31 +19,41 @@ namespace DirSynchroniser
                     return;
                 }
 
-                string sourcePath = args[0];
-                string targetPath = args[1];
+
                 if (!int.TryParse(args[2], out int intervalSeconds))
                 {
                     Console.WriteLine("enter an integer for interval");
                     return;
                 }
-                string logFilePath = args[3];
 
+                var passedParams = new SyncConfig
+                {
+                    SourcePath = args[0],
+                    TargetPath = args[1],
+                    IntervalInSeconds = int.Parse(args[2]),
+                    LogFilePath = args[3]
+                };
                 var config = LogManager.Configuration;
                 var fileTarget = config?.FindTargetByName<NLog.Targets.FileTarget>("file");
-                if (fileTarget != null && logFilePath != null)
+
+                if (fileTarget != null)
                 {
-                    fileTarget.FileName = Path.Combine(logFilePath, "sync.log");
+                    fileTarget.FileName = Path.Combine(passedParams.LogFilePath, "sync.log");
                     LogManager.ReconfigExistingLoggers();
                 }
-                logger.Info("Starting directory synchronisation from {0} to {1} every {2} seconds.", sourcePath, targetPath, intervalSeconds);
-                var synchroniser = new DirectorySynchroniser(sourcePath, targetPath, logger);
-                synchroniser.Synchronise();
+                logger.Info($"Starting directory synchronisation from {passedParams.SourcePath} to {passedParams.TargetPath} every {passedParams.IntervalInSeconds} seconds");
+                var synchroniser = new DirectorySynchroniser(passedParams.SourcePath, passedParams.TargetPath, logger);
 
-                // TBD run synchronisation periodically
+                while (true)
+                {
+                    synchroniser.Synchronise();
+                    logger.Debug("Synchronization completed");
+                    Thread.Sleep(passedParams.IntervalInSeconds * 1000);
+                }
             }
             catch (Exception mainException)
             {
-                logger.Error(mainException, "Fatal error");
+                logger.Error(mainException.Message, "Main error");
             }
             finally
             {
